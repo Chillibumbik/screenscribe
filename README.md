@@ -25,12 +25,13 @@ Backend: FastAPl, Python 3.12
 
 Speech and screen text are kept together on purpose: "the last line" and "this solution" mean
 nothing without the slide, and the slide carries the spelling ("Kubernetes") that the speech
-model writes phonetically. Why this layout and not two files or a table:
+model writes phonetically. The whole transcript of that test call:
+[docs/example/sample.md](docs/example/sample.md). Why this layout and not two files or a table:
 [docs/research/merged-transcript-format.md](docs/research/merged-transcript-format.md).
 
 ## Install
 
-Needs [uv](https://docs.astral.sh/uv/) and Python 3.10 or newer.
+Needs [uv](https://docs.astral.sh/uv/). It uses Python 3.11 or newer and fetches one if the system has none.
 
 ```bash
 uv tool install git+https://github.com/Chillibumbik/screenscribe
@@ -107,8 +108,10 @@ Finding the speakers and recognizing the speech (synthetic call repeated to the 
 | 2.8 min | 1 | 52 s | 0.31 |
 | 2.8 min | 4 | 32 s | 0.19 |
 | 9.3 min | 2 | 119 s | 0.21 |
+| 60 min | 4 | 11.8 min | 0.19 |
 
-Peak memory was about 660 MB. More than 4 threads made it slower, so 4 is the cap.
+Peak memory was about 660 MB for the short recordings and 970 MB for the hour. More than
+4 threads made it slower, so 4 is the cap.
 
 A screen that changed takes 1 to 4 seconds to read (720p slide to dense 1080p page). Reading
 is capped at about two thirds of real time, so a busy screen on a slow machine is sampled
@@ -118,9 +121,10 @@ less often instead of taking hours.
 
 - The speech model knows Russian only. English terms are written in Cyrillic ("кубернейтес");
   the screen text next to them usually has the right spelling.
-- Speaker detection makes mistakes, mostly with similar voices, short remarks and people
-  talking over each other. It was tuned on five short recordings; accuracy on long real
-  calls has not been measured.
+- Speaker detection makes mistakes. On six synthetic three-voice calls 91 to 98% of the
+  speech time got the right speaker; the misses were short remarks right after a speaker
+  change. Similar voices and people talking over each other are harder. Accuracy on long
+  real calls has not been measured.
 - OCR misreads look-alike characters now and then ("FastAPl"), and text with confidence
   below 50% is dropped.
 - Transcription starts after the recording ends. There are no live captions.

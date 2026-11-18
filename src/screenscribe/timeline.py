@@ -89,6 +89,7 @@ def markdown(name: str, chapters: list[dict], screens: list[dict], duration: flo
 
 
 def page(name: str, chapters: list[dict], screens: list[dict], duration: float, media: str) -> str:
+    """The HTML viewer; `media` is the URL of the recording for the player."""
     escape = html.escape
     outline, body = [], []
     for number, chapter in enumerate(chapters):
@@ -115,7 +116,7 @@ def page(name: str, chapters: list[dict], screens: list[dict], duration: float, 
         body.append("".join(section))
     template = Template(resources.files(__package__).joinpath("viewer.html").read_text("utf-8"))
     return template.substitute(title=escape(name), meta=escape(summary(chapters, screens, duration)),
-                               outline="".join(outline), chapters="\n".join(body), media=escape(quote(media)))
+                               outline="".join(outline), chapters="\n".join(body), media=escape(media))
 
 
 def write(stem: Path, source: Path, segments: list[dict], screens: list[dict], duration: float) -> dict[str, Path]:
@@ -123,7 +124,10 @@ def write(stem: Path, source: Path, segments: list[dict], screens: list[dict], d
     chapters = build(segments, screens)
     raw = {"file": source.name, "duration": duration, "segments": segments,
            "screens": [{name: value for name, value in screen.items() if name != "image"} for screen in screens]}
-    media = Path(os.path.relpath(source, stem.parent)).as_posix()
+    try:
+        media = quote(Path(os.path.relpath(source, stem.parent)).as_posix())
+    except ValueError:  # Windows: the output folder is on another drive
+        media = source.resolve().as_uri()
     outputs = {
         "md": markdown(source.name, chapters, screens, duration),
         "html": page(source.name, chapters, screens, duration, media),

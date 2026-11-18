@@ -10,7 +10,7 @@ espeak-ng frontend, which sherpa-onnx dropped in 2.0, while the transcriber itse
 """
 
 # /// script
-# requires-python = ">=3.10"
+# requires-python = ">=3.11"
 # dependencies = ["sherpa-onnx<2", "av", "numpy", "pillow"]
 # ///
 

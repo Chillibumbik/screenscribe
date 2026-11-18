@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Local transcriber for calls and screen recordings: speech, speakers and on-screen text in one timeline. CPU only."
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "av>=14",
     "numpy>=1.26",
