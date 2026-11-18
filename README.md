@@ -1,5 +1,7 @@
 # screenscribe
 
+[![ci](https://github.com/Chillibumbik/screenscribe/actions/workflows/ci.yml/badge.svg)](https://github.com/Chillibumbik/screenscribe/actions/workflows/ci.yml)
+
 Local transcriber for calls and screen recordings. One recording goes in, one timeline comes
 out: what was said, who said it, and what was on the screen at that moment.
 
@@ -128,8 +130,10 @@ less often instead of taking hours.
 - OCR misreads look-alike characters now and then ("FastAPl"), and text with confidence
   below 50% is dropped.
 - Transcription starts after the recording ends. There are no live captions.
-- Developed and tested on Linux. Windows and macOS are covered only by the CI run
-  (unit tests and the end-to-end test), not by hand.
+- Developed and tried by hand on Linux only. On Windows and macOS just the automated tests
+  have run (unit tests and the end-to-end test pass on all three in CI).
+- The recording button was exercised in a Chromium browser with a synthetic picture; the
+  real screen picker and tab audio were not.
 
 ## Development
 
