@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>$title</title>
+<style>
+:root { color-scheme: light dark; --bg: #faf9f6; --fg: #1c1d20; --muted: #686d75; --line: #e2e0da; --card: #fff; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #15161a; --fg: #e7e5e0; --muted: #9a9fa8; --line: #2b2d33; --card: #1d1f24; }
+}
+* { box-sizing: border-box; }
+body { margin: 0 0 96px; font: 16px/1.6 system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+header, nav, main { max-width: 1320px; margin: 0 auto; padding: 0 20px; }
+h1 { font-size: 1.45rem; margin: 28px 0 4px; overflow-wrap: anywhere; }
+.meta { color: var(--muted); margin: 0; font-size: .9rem; }
+nav { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 16px; margin-bottom: 16px; }
+nav a { font-size: .8rem; padding: 2px 10px; border: 1px solid var(--line); border-radius: 999px; color: inherit;
+  text-decoration: none; max-width: 30ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+nav a:hover { border-color: var(--muted); }
+.chapter { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px 36px; padding: 22px 0;
+  border-top: 1px solid var(--line); scroll-margin-top: 8px; }
+.screen h2 { font-size: .92rem; margin: 0 0 8px; overflow-wrap: anywhere; }
+.screen img { display: block; width: 100%; border: 1px solid var(--line); border-radius: 8px; cursor: zoom-in; }
+.screen img.zoomed { position: fixed; inset: 0; z-index: 9; width: 100vw; height: 100vh; object-fit: contain;
+  border: 0; border-radius: 0; background: rgba(0, 0, 0, .88); cursor: zoom-out; }
+.screen pre { margin: 8px 0 0; padding: 10px 12px; font: 12.5px/1.5 ui-monospace, monospace; white-space: pre-wrap;
+  overflow-wrap: anywhere; background: var(--card); border: 1px solid var(--line); border-radius: 8px; }
+@media (min-width: 900px) {
+  /* the screen stays pinned beside the speech that was said over it */
+  .chapter { grid-template-columns: minmax(0, 11fr) minmax(0, 9fr); }
+  .speech { grid-column: 1; grid-row: 1; }
+  .screen { grid-column: 2; grid-row: 1; position: sticky; top: 12px; align-self: start;
+    max-height: calc(100vh - 24px); overflow: auto; }
+}
+.turn { margin: 0 0 14px; }
+button { all: unset; cursor: pointer; }
+button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 3px; }
+.t { font: .78rem ui-monospace, monospace; color: var(--muted); margin-right: 8px; }
+.t:hover { text-decoration: underline; }
+.who { font-weight: 650; margin-right: 7px; }
+.s1 { color: #3577e5; } .s2 { color: #d9652b; } .s3 { color: #1b9a72; } .s4 { color: #a557d1; }
+.s5 { color: #d2416a; } .s6 { color: #2b9bb8; } .s7 { color: #94811a; } .s8 { color: #8c6a4f; }
+/* sound only: the pictures are already on the page, and a video box would cover them */
+#player { position: fixed; right: 16px; bottom: 16px; width: 340px; max-width: calc(100vw - 32px); }
+</style>
+</head>
+<body>
+<header>
+<h1>$title</h1>
+<p class="meta">$meta. Click a time to play from there, a speaker name to rename it, a picture to enlarge it.</p>
+</header>
+<nav aria-label="Screens">$outline</nav>
+<main>
+$chapters
+</main>
+<audio id="player" controls preload="metadata" src="$media"></audio>
+<script>
+const player = document.getElementById('player');
+player.addEventListener('error', () => player.remove());  // recording moved or not playable here
+const store = 'speakers:' + document.title;
+let names = {};
+try { names = JSON.parse(localStorage.getItem(store)) || {}; } catch (error) {}
+function showNames() {
+  document.querySelectorAll('.who').forEach(el => { if (names[el.dataset.s]) el.textContent = names[el.dataset.s]; });
+}
+showNames();
+document.addEventListener('click', event => {
+  const time = event.target.closest('.t'), who = event.target.closest('.who');
+  if (time && player.isConnected) { player.currentTime = +time.dataset.t; player.play(); }
+  if (who) {
+    const name = prompt('Speaker name', who.textContent);
+    if (name) {
+      names[who.dataset.s] = name;
+      try { localStorage.setItem(store, JSON.stringify(names)); } catch (error) {}
+      showNames();
+    }
+  }
+  if (event.target.matches('.screen img')) event.target.classList.toggle('zoomed');
+});
+</script>
+</body>
+</html>

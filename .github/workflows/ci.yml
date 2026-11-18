@@ -1,0 +1,38 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: ${{ matrix.os }}, Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ["3.12"]
+        include:
+          - os: ubuntu-latest
+            python: "3.10"
+    env:
+      UV_PYTHON: ${{ matrix.python }}
+      PYTHONUTF8: "1"
+      SCREENSCRIBE_CACHE: ${{ github.workspace }}/.model-cache
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/cache@v4
+        with:
+          path: .model-cache
+          key: models-${{ runner.os }}-${{ hashFiles('src/screenscribe/models.py', 'src/screenscribe/screen.py', 'tests/make_sample.py') }}
+      - name: Unit tests
+        run: uv run pytest -q
+      - name: Build the synthetic call
+        run: uv run --script tests/make_sample.py sample/sample.webm
+      - name: End-to-end test (speech, speakers and screen text in one process)
+        run: uv run pytest -q tests/test_end_to_end.py
+        env:
+          SCREENSCRIBE_SAMPLE: sample/sample.webm

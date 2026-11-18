@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>screenscribe</title>
+<style>
+:root { color-scheme: light dark; --bg: #faf9f6; --fg: #1c1d20; --muted: #686d75; --line: #e2e0da; --card: #fff;
+  --accent: #2f6fde; --bad: #c8372d; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #15161a; --fg: #e7e5e0; --muted: #9a9fa8; --line: #2b2d33; --card: #1d1f24; --accent: #7aa7ff; --bad: #ff7b6e; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.55 system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+main { max-width: 860px; margin: 0 auto; padding: 32px 20px 64px; }
+h1 { font-size: 1.6rem; margin: 0; }
+h2 { font-size: 1rem; margin: 36px 0 10px; }
+p { margin: 6px 0; }
+.muted { color: var(--muted); font-size: .9rem; }
+.actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 24px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; }
+#drop { border-style: dashed; text-align: center; cursor: pointer; }
+#drop.over { border-color: var(--accent); }
+button, .button { font: inherit; padding: 8px 16px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--card); color: inherit; cursor: pointer; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+@media (prefers-color-scheme: dark) { button.primary { color: #10131a; } }
+button:focus-visible, #drop:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+label { display: block; margin-top: 10px; font-size: .9rem; }
+#jobs { list-style: none; margin: 0; padding: 0; }
+#jobs li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; padding: 12px 0; border-top: 1px solid var(--line); }
+#jobs .name { font-weight: 600; overflow-wrap: anywhere; flex: 1 1 240px; }
+#jobs .state { color: var(--muted); font-size: .9rem; }
+#jobs .state.error { color: var(--bad); }
+#jobs a { color: var(--accent); }
+#error { color: var(--bad); min-height: 1.5em; margin-top: 12px; }
+</style>
+</head>
+<body>
+<main>
+<h1>screenscribe</h1>
+<p class="muted">Speech, speakers and on-screen text in one transcript. Everything runs on this computer; nothing is uploaded anywhere.</p>
+
+<div class="actions">
+  <div class="card" id="drop" tabindex="0" role="button" aria-label="Choose a recording to transcribe">
+    <p><strong>Drop a recording here</strong></p>
+    <p class="muted">or click to choose a video or audio file</p>
+    <input type="file" id="file" accept="video/*,audio/*,.mkv" hidden multiple>
+  </div>
+  <div class="card">
+    <p><strong>Record this screen</strong> <span class="muted" id="timer"></span></p>
+    <button class="primary" id="record">Start recording</button>
+    <label><input type="checkbox" id="mic" checked> also record my microphone</label>
+    <p class="muted">To capture the other participants, share a browser tab with "Also share tab audio" (Chrome, Edge), or the whole screen with system audio on Windows.</p>
+  </div>
+</div>
+<p id="error" role="alert"></p>
+
+<h2>Recordings</h2>
+<ul id="jobs"></ul>
+<p class="muted" id="dir"></p>
+</main>
+<script>
+const byId = id => document.getElementById(id);
+const fail = error => { byId('error').textContent = String(error.message || error); };
+
+async function post(url, body) {
+  const response = await fetch(url, { method: 'POST', body, headers: { 'X-Screenscribe': '1' } });
+  if (!response.ok) throw new Error('The local server refused the request (' + response.status + ')');
+  return response.json();
+}
+const start = id => post('/jobs/' + id + '/start').then(refresh);
+
+async function upload(files) {
+  byId('error').textContent = '';
+  for (const file of files) {
+    try {
+      const { id } = await post('/jobs?name=' + encodeURIComponent(file.name));
+      await post('/jobs/' + id + '/data', file);
+      await start(id);
+    } catch (error) { fail(error); }
+  }
+}
+const drop = byId('drop');
+drop.addEventListener('click', () => byId('file').click());
+drop.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') byId('file').click(); });
+byId('file').addEventListener('change', event => { upload(event.target.files); event.target.value = ''; });
+drop.addEventListener('dragover', event => { event.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+drop.addEventListener('drop', event => { event.preventDefault(); drop.classList.remove('over'); upload(event.dataTransfer.files); });
+
+let stopRecording = null;
+byId('record').addEventListener('click', () => (stopRecording ? stopRecording() : record().catch(fail)));
+
+async function record() {
+  byId('error').textContent = '';
+  const screen = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 5 }, audio: true });
+  const streams = [screen];
+  if (byId('mic').checked) {
+    try { streams.push(await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true } })); }
+    catch (error) { fail('Microphone is not available; recording without it.'); }
+  }
+  // one audio track out of tab/system sound and the microphone
+  const audio = new AudioContext(), mix = audio.createMediaStreamDestination();
+  const heard = streams.filter(stream => stream.getAudioTracks().length);
+  heard.forEach(stream => audio.createMediaStreamSource(stream).connect(mix));
+  const tracks = [...screen.getVideoTracks(), ...(heard.length ? mix.stream.getAudioTracks() : [])];
+  const recorder = new MediaRecorder(new MediaStream(tracks), { videoBitsPerSecond: 1000000, audioBitsPerSecond: 64000 });
+  const extension = recorder.mimeType.includes('mp4') ? 'mp4' : 'webm';
+  const stamp = new Date().toLocaleString('sv').replace(/[: ]/g, '-');
+  const { id } = await post('/jobs?name=' + encodeURIComponent('screen-' + stamp + '.' + extension));
+  // pieces go to disk as they arrive, in order, so a long call never sits in browser memory
+  let sent = Promise.resolve();
+  recorder.ondataavailable = event => { if (event.data.size) sent = sent.then(() => post('/jobs/' + id + '/data', event.data)); };
+  const began = Date.now();
+  const tick = setInterval(() => {
+    const seconds = Math.floor((Date.now() - began) / 1000);
+    byId('timer').textContent = Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
+  }, 1000);
+  recorder.onstop = () => {
+    clearInterval(tick);
+    streams.forEach(stream => stream.getTracks().forEach(track => track.stop()));
+    audio.close();
+    byId('record').textContent = 'Start recording';
+    byId('timer').textContent = '';
+    stopRecording = null;
+    sent.then(() => start(id)).catch(fail);
+  };
+  stopRecording = () => recorder.stop();
+  screen.getVideoTracks()[0].addEventListener('ended', () => stopRecording && stopRecording());  // "Stop sharing" in the browser
+  recorder.start(5000);
+  byId('record').textContent = 'Stop and transcribe';
+}
+
+function row(job) {
+  const item = document.createElement('li');
+  const add = (tag, text, cls) => { const el = document.createElement(tag); el.textContent = text; if (cls) el.className = cls; item.append(el); return el; };
+  add('span', job.name, 'name');
+  if (job.state === 'done') {
+    const base = '/files/' + encodeURIComponent(job.id) + '/' + encodeURIComponent(job.name.replace(/\.[^.]+$/, ''));
+    for (const [label, extension] of [['Open transcript', '.html'], ['Markdown', '.md'], ['JSON', '.json']]) {
+      const link = add('a', label);
+      link.href = base + extension;
+      if (extension === '.html') link.target = '_blank'; else link.download = '';
+    }
+  } else {
+    add('span', job.message || 'not transcribed', 'state' + (job.state === 'error' ? ' error' : ''));
+    if (job.state !== 'working' && !stopRecording) add('button', 'Transcribe').addEventListener('click', () => start(job.id).catch(fail));
+  }
+  return item;
+}
+async function refresh() {
+  try {
+    const data = await (await fetch('/jobs')).json();
+    byId('jobs').replaceChildren(...data.jobs.map(row));
+    byId('dir').textContent = data.jobs.length ? 'Files are kept in ' + data.dir : 'Nothing here yet.';
+  } catch (error) { fail('The local server is not responding. Is "screenscribe serve" still running?'); }
+}
+refresh();
+setInterval(refresh, 2000);
+</script>
+</body>
+</html>
