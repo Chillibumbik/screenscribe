@@ -100,7 +100,15 @@ Steps 2 and 3 run on [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx), step 
 
 Measured on a laptop with an Intel i5-12450H and 16 GB RAM, no GPU.
 
-SPEED_TABLE
+Finding the speakers and recognizing the speech (synthetic call repeated to the given length):
+
+| Recording | Threads | Time | Share of the recording's length |
+|---|---|---|---|
+| 2.8 min | 1 | 52 s | 0.31 |
+| 2.8 min | 4 | 32 s | 0.19 |
+| 9.3 min | 2 | 119 s | 0.21 |
+
+Peak memory was about 660 MB. More than 4 threads made it slower, so 4 is the cap.
 
 A screen that changed takes 1 to 4 seconds to read (720p slide to dense 1080p page). Reading
 is capped at about two thirds of real time, so a busy screen on a slow machine is sampled
@@ -116,7 +124,8 @@ less often instead of taking hours.
 - OCR misreads look-alike characters now and then ("FastAPl"), and text with confidence
   below 50% is dropped.
 - Transcription starts after the recording ends. There are no live captions.
-- Developed and tested on Linux. PLATFORM_NOTE
+- Developed and tested on Linux. Windows and macOS are covered only by the CI run
+  (unit tests and the end-to-end test), not by hand.
 
 ## Development
 
