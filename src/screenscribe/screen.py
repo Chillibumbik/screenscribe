@@ -38,13 +38,12 @@ def read_screens(path, threads: int = 4, progress=lambda message: None) -> list[
             continue
         # the picture changed somewhere between the two samples: take the middle
         since = (before + now) / 2 if since is None else since
-        # Let a transition or scroll settle before reading it, but not forever:
-        # a webcam tile in the corner never settles.
-        if not settled and now - since < wait:
-            continue
-        # Keep OCR below about two thirds of real time on any machine: a slow PC reads
-        # a busy screen less often instead of taking hours.
-        if now - read_at < gap:
+        # A picture that has settled (a new slide) is always read. One that keeps moving
+        # (a scroll, a webcam tile in the corner) is given time to settle, but not
+        # forever, and is read at most every `gap` seconds: that keeps OCR of a busy
+        # screen below about two thirds of real time on a slow PC without ever skipping
+        # a slide there.
+        if not settled and (now - since < wait or now - read_at < gap):
             continue
         progress(f"Reading the screen: {int(now) // 60:02}:{int(now) % 60:02}")
         ocr = ocr or _engine(threads)

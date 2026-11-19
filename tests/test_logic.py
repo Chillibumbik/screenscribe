@@ -3,7 +3,7 @@
 import numpy as np
 
 from screenscribe.screen import blocks, fix_scripts, fresh, headline, key, rows
-from screenscribe.speech import MAX_CHUNK, sentences, split
+from screenscribe.speech import MAX_CHUNK, sentences, split, stray
 from screenscribe.timeline import build, clock, markdown
 
 
@@ -15,6 +15,12 @@ def test_sentences_get_their_own_times_and_numbers_stay_whole():
 
 def test_text_without_final_punctuation_is_kept():
     assert sentences([" да", " конечно"], [0.0, 0.5], 5.0, 7.0) == [(5.0, 7.0, "да конечно")]
+
+
+def test_small_voices_are_not_participants():
+    assert stray({0: 1278.0, 1: 366.0, 2: 258.0, 3: 17.0, 4: 6.0}) == {3, 4}  # a webinar: under 1% of the speech
+    assert stray({0: 20.0, 1: 10.0, 2: 18.0}) == set()  # a one-minute call: everyone is real
+    assert stray({0: 40.0, 1: 3.0}) == {1}  # never count under 5 s
 
 
 def test_long_audio_is_cut_at_the_quiet_spot():

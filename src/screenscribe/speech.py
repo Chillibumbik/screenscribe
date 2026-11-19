@@ -7,15 +7,14 @@ from . import models
 from .media import SAMPLE_RATE
 
 MAX_CHUNK = 20.0  # seconds; GigaAM is trained on utterances up to ~25-30 s and degrades beyond
-MIN_TALK = 5.0  # seconds in the whole recording; less than this is not counted as a speaker
+MIN_TALK = 5.0  # seconds; a voice heard for less than this, or for less than
+MIN_SHARE = 0.01  # this share of all speech, is not counted as a speaker
 
 
 def transcribe(audio: np.ndarray, threads: int = 4, progress=lambda message: None) -> list[dict]:
     """Return sentences [{start, end, speaker, text}]; speakers are numbered from 1 by first appearance.
 
-    Speaker 0 means "unidentified": on real calls the clustering leaves stray voices
-    that add up to a second or two (the tail of someone's phrase, a backchannel over
-    another speaker). They keep their words but do not become extra participants.
+    Speaker 0 means "unidentified": see `stray`.
 
     Diarization runs first and each speaker segment is recognized on its own, so no
     word-level alignment between the two models is needed.
@@ -30,13 +29,13 @@ def transcribe(audio: np.ndarray, threads: int = 4, progress=lambda message: Non
             num_threads=threads),
         embedding=sherpa_onnx.SpeakerEmbeddingExtractorConfig(
             model=str(models.fetch(models.EMBEDDING)), num_threads=threads),
-        # The number of speakers is found by threshold. With TitaNet-small, 0.9 gave the right
-        # main speakers on every check recording (a 41 min webinar, a 42 min interview, a
-        # one-voice reading, four short test calls); 0.8 split one webinar voice in two, 1.0
-        # merged the two people of the interview, the library default of 0.5 splits far more.
-        # A fixed num_clusters is not offered: asking for 3 returned 2 on the sample, as
-        # stray segments take a cluster of their own.
-        clustering=sherpa_onnx.FastClusteringConfig(num_clusters=-1, threshold=0.9),
+        # The number of speakers is found by threshold, and 0.8 errs on the safe side. At 0.9
+        # two different voices were merged into one speaker in two of four test runs, which
+        # the reader cannot undo; at 0.8 a voice is sometimes split instead (the pieces are
+        # small, see `stray`, and two numbers can be given one name in the viewer). The
+        # library default of 0.5 splits far more. A fixed num_clusters is not offered: asking
+        # for 3 returned 2 on the sample, as stray segments take a cluster of their own.
+        clustering=sherpa_onnx.FastClusteringConfig(num_clusters=-1, threshold=0.8),
         min_duration_on=0.3,
         min_duration_off=0.5,
     ))
@@ -50,6 +49,7 @@ def transcribe(audio: np.ndarray, threads: int = 4, progress=lambda message: Non
     talk = {}
     for turn in turns:
         talk[turn.speaker] = talk.get(turn.speaker, 0.0) + turn.end - turn.start
+    unknown = stray(talk)
 
     folder = models.fetch(models.ASR)
     recognizer = sherpa_onnx.OfflineRecognizer.from_transducer(
@@ -69,10 +69,21 @@ def transcribe(audio: np.ndarray, threads: int = 4, progress=lambda message: Non
             stream.accept_waveform(SAMPLE_RATE, audio[int(start * SAMPLE_RATE):int(end * SAMPLE_RATE)])
             recognizer.decode_stream(stream)
             for begin, finish, text in sentences(stream.result.tokens, stream.result.timestamps, start, end):
-                known = talk[turn.speaker] >= MIN_TALK
+                known = turn.speaker not in unknown
                 speaker = numbers.setdefault(turn.speaker, len(numbers) + 1) if known else 0
                 segments.append({"start": begin, "end": finish, "speaker": speaker, "text": text})
     return segments
+
+
+def stray(talk: dict[int, float]) -> set[int]:
+    """Voices too small to be a participant, given the seconds each one spoke.
+
+    On real calls the clustering leaves small extra voices: the tail of someone's
+    phrase, a backchannel over another speaker. Anything under 1% of all speech (and
+    under 5 s in a short recording) keeps its words but is shown as unidentified.
+    """
+    floor = max(MIN_TALK, MIN_SHARE * sum(talk.values()))
+    return {speaker for speaker, seconds in talk.items() if seconds < floor}
 
 
 def sentences(tokens: list[str], stamps: list[float], start: float, end: float) -> list[tuple]:

@@ -44,7 +44,7 @@ def test_synthetic_call(tmp_path):
     words = ("тестирование", "архитектуру", "инфраструктуре", "недели")
     assert sum(word in speech for word in words) >= 3, speech
 
-    assert len(raw["screens"]) == 4
+    assert len(raw["screens"]) == 4, [(screen["start"], screen["title"]) for screen in raw["screens"]]
     screen_text = "\n".join(line for screen in raw["screens"] for line in screen["new"])
     for term in ("CRM", "480 000", "PostgreSQL", "RabbitMQ", "Kubernetes", "pytest"):
         assert term in screen_text

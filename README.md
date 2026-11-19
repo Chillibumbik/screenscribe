@@ -85,15 +85,16 @@ Writes `call.md`, `call.html` and `call.json` next to the file.
   enlarge it. Keep it next to the recording: the player uses the original file.
 - `call.json`: the raw sentences and screens with timings, for other tools.
 
-`Speaker ?` marks a few words whose voice was heard for under five seconds in the whole
-recording, too little to tell who it was.
+`Speaker ?` marks words from a voice that makes up less than 1% of the speech (or under five
+seconds): too little to tell who it was. Usually it is the tail of someone's phrase.
 
 ## How it works
 
 1. PyAV decodes the audio to 16 kHz mono and samples one video frame per second.
 2. Speakers: pyannote segmentation 3.0 finds who speaks when, TitaNet-small voiceprints are
-   clustered into speakers. The number of speakers is detected automatically; a voice heard
-   for under five seconds in total is not counted as a participant.
+   clustered into speakers. The number of speakers is detected automatically, erring towards
+   splitting one person in two rather than merging two people; a voice that makes up less
+   than 1% of the speech is not counted as a participant.
 3. Speech: every speaker segment is recognized by GigaAM v3 (Russian, with punctuation) in
    pieces of at most 20 seconds and split into sentences by token timestamps.
 4. Screen: a frame is read only when the picture has changed and settled. PP-OCRv5 (Cyrillic
@@ -117,8 +118,9 @@ Measured on a laptop with an Intel i5-12450H and 16 GB RAM, no GPU, 4 threads.
 | 7 min screencast of dense web pages, 720p | 3.9 min | 0.7 min | 0.4 min | 2.9 min | 0.7 GB |
 
 A call takes about a fifth of its length. A recording where dense text keeps changing takes
-up to half: reading the screen is capped at about two thirds of real time, so a busy screen
-on a slow machine is sampled less often instead of taking hours.
+up to half. A screen that keeps moving (scrolling, a video) is read at most often enough to
+stay under two thirds of real time, so a slow machine samples it less often instead of
+taking hours; a screen that has settled, such as a new slide, is always read.
 
 Threads: the speech part took 0.31 of the recording's length on 1 thread, 0.21 on 2 and 0.19
 on 4. More than 4 made it slower, so 4 is the cap.

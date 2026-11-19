@@ -143,7 +143,7 @@ where the layout broke down, and the rules above already include the fixes.
 | Headings were often window chrome: an address bar, a name label, a misread emoji | A screen is named by its largest new text, usually the slide heading |
 | With a busy chat panel a new slide brought fewer than half of the lines on the screen, so it was taken for a small change | A screen is also new when its largest text is new and clearly larger than ordinary text there. When all text is one size (a chat on its own) nothing counts as a heading |
 | Counters and misread icons ("000000") were enough to count as a change | Only letters count, and it takes 20 of them |
-| 8 and 12 speakers were reported where about 4 and 4 to 6 talk. The extra ones were pieces of one to three seconds at the edges of other people's turns | Clustering threshold 0.8 to 0.9, and a voice heard for under five seconds in total is shown as `Speaker ?`. Now 4 and 6 |
+| 8 and 12 speakers were reported where about 4 and 4 to 6 talk. The extra ones were pieces of one to three seconds at the edges of other people's turns | A voice that makes up less than 1% of the speech is shown as `Speaker ?` instead of a participant. Raising the clustering threshold from 0.8 to 0.9 removed the pieces too, but merged two different voices in two of four test runs, so it was not kept |
 
 Not fixed by the revision:
 
