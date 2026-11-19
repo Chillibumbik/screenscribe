@@ -54,6 +54,7 @@ label { display: block; margin-top: 10px; font-size: .9rem; }
     <p class="muted">To capture the other participants, share a browser tab with "Also share tab audio" (Chrome, Edge), or the whole screen with system audio on Windows.</p>
   </div>
 </div>
+<label><input type="checkbox" id="screen" checked> also read the text on the screen (untick for speech only: faster)</label>
 <p id="error" role="alert"></p>
 
 <h2>Recordings</h2>
@@ -69,7 +70,7 @@ async function post(url, body) {
   if (!response.ok) throw new Error('The local server refused the request (' + response.status + ')');
   return response.json();
 }
-const start = id => post('/jobs/' + id + '/start').then(refresh);
+const start = id => post('/jobs/' + id + '/start?screen=' + (byId('screen').checked ? 1 : 0)).then(refresh);
 
 async function upload(files) {
   byId('error').textContent = '';

@@ -35,9 +35,10 @@ def serve(root: Path, port: int, open_browser: bool) -> None:
         from .pipeline import process
 
         while True:
-            job = pending.get()
+            job, screen = pending.get()
             try:
-                process(source_of(root / job), progress=lambda message: status.__setitem__(job, message))
+                process(source_of(root / job), screen=screen,
+                        progress=lambda message: status.__setitem__(job, message))
                 del status[job]
             except Exception as error:  # keep serving; show the reason on the page
                 traceback.print_exc()
@@ -162,7 +163,7 @@ def serve(root: Path, port: int, open_browser: bool) -> None:
             elif len(parts) == 3 and parts[0] == "jobs" and self.folder(parts[1]) and parts[2] == "start":
                 if parts[1] not in status or status[parts[1]].startswith("error"):
                     status[parts[1]] = "queued"
-                    pending.put(parts[1])
+                    pending.put((parts[1], query.get("screen", ["1"])[0] != "0"))  # screen=0: speech only
                 self.reply(200, b"{}")
             else:
                 self.rfile.read(length)

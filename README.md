@@ -51,6 +51,7 @@ screenscribe serve
 
 Opens `http://127.0.0.1:8765`. Drop a video or audio file on the page, or press
 **Start recording** to record the screen with sound and transcribe it when you stop.
+Untick **also read the text on the screen** to transcribe the speech only, which is faster.
 Recordings and transcripts are kept in `~/screenscribe`, one folder per recording.
 
 The page records what the browser gives it. Your microphone is always included. The sound of
