@@ -20,7 +20,7 @@ Backend: FastAPl, Python 3.12
 Деплой: Docker, Kubernetes
 ```
 
-**[00:19] Speaker 3:** Конечно, на этом слайде наш текст. Обратите внимание на последнюю строку, деплей будет кубернейтес.
+**[00:19] Speaker 3:** Конечно, на этом слайде наш текст. Обратите внимание на последнюю строку, где плый будет кубернетис.
 
 **[00:26] Speaker 2:** А почему для очереди выбрали именно это решение?
 ````
@@ -76,59 +76,67 @@ Writes `call.md`, `call.html` and `call.json` next to the file.
 
 ## What you get
 
-- `call.md`: the timeline as plain Markdown. Read it, or give it to an LLM as context.
+- `call.md`: the timeline as plain Markdown. Read it, or give it to an LLM as context. A screen
+  with new content is a heading with its text; a small change of that screen (a chat message,
+  one more line) is a one-line `Screen update` note between the sentences.
 - `call.html`: the same timeline as a page. Each screen is shown with its screenshot and stays
   pinned beside the speech said over it. Click a time to hear that moment, a speaker name to
   rename it (give two numbers the same name if one person was split in two), a picture to
   enlarge it. Keep it next to the recording: the player uses the original file.
 - `call.json`: the raw sentences and screens with timings, for other tools.
 
+`Speaker ?` marks a few words whose voice was heard for under five seconds in the whole
+recording, too little to tell who it was.
+
 ## How it works
 
 1. PyAV decodes the audio to 16 kHz mono and samples one video frame per second.
 2. Speakers: pyannote segmentation 3.0 finds who speaks when, TitaNet-small voiceprints are
-   clustered into speakers. The number of speakers is detected automatically.
+   clustered into speakers. The number of speakers is detected automatically; a voice heard
+   for under five seconds in total is not counted as a participant.
 3. Speech: every speaker segment is recognized by GigaAM v3 (Russian, with punctuation) in
    pieces of at most 20 seconds and split into sentences by token timestamps.
 4. Screen: a frame is read only when the picture has changed and settled. PP-OCRv5 (Cyrillic
-   and Latin) reads it, side-by-side panes are read one after another, and only the lines the
-   previous screen did not have are kept.
-5. Merge: each screen opens a chapter, and each sentence goes under the screen that was
-   visible while it was said.
+   and Latin) reads it, side-by-side panes are read one after another, and only the text the
+   previous screen did not have is kept. The largest new text names the screen.
+5. Merge: a screen with mostly new content opens a chapter, a small change becomes a note
+   inside it, and each sentence goes under the screen that was visible while it was said.
 
 Steps 2 and 3 run on [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx), step 4 on
 [RapidOCR](https://github.com/RapidAI/RapidOCR). There is no PyTorch in the dependency tree.
 
 ## Speed and memory
 
-Measured on a laptop with an Intel i5-12450H and 16 GB RAM, no GPU.
+Measured on a laptop with an Intel i5-12450H and 16 GB RAM, no GPU, 4 threads.
 
-Finding the speakers and recognizing the speech (synthetic call repeated to the given length):
+| Recording | Total | Speakers | Speech | Screen | Peak memory |
+|---|---|---|---|---|---|
+| 41 min webinar, 720p, slides and chat | 7.7 min | 3.7 min | 2.1 min | 1.8 min | 0.9 GB |
+| 48 min webinar, 720p, slides and chat | 8.8 min | 4.4 min | 2.6 min | 1.8 min | 1.1 GB |
+| 42 min interview, audio only | 6.8 min | 4.1 min | 2.5 min | none | 0.9 GB |
+| 7 min screencast of dense web pages, 720p | 3.9 min | 0.7 min | 0.4 min | 2.9 min | 0.7 GB |
 
-| Recording | Threads | Time | Share of the recording's length |
-|---|---|---|---|
-| 2.8 min | 1 | 52 s | 0.31 |
-| 2.8 min | 4 | 32 s | 0.19 |
-| 9.3 min | 2 | 119 s | 0.21 |
-| 60 min | 4 | 11.8 min | 0.19 |
+A call takes about a fifth of its length. A recording where dense text keeps changing takes
+up to half: reading the screen is capped at about two thirds of real time, so a busy screen
+on a slow machine is sampled less often instead of taking hours.
 
-Peak memory was about 660 MB for the short recordings and 970 MB for the hour. More than
-4 threads made it slower, so 4 is the cap.
-
-A screen that changed takes 1 to 4 seconds to read (720p slide to dense 1080p page). Reading
-is capped at about two thirds of real time, so a busy screen on a slow machine is sampled
-less often instead of taking hours.
+Threads: the speech part took 0.31 of the recording's length on 1 thread, 0.21 on 2 and 0.19
+on 4. More than 4 made it slower, so 4 is the cap.
 
 ## Limits
 
-- The speech model knows Russian only. English terms are written in Cyrillic ("кубернейтес");
+- The speech model knows Russian only. English terms are written in Cyrillic ("кубернетис");
   the screen text next to them usually has the right spelling.
-- Speaker detection makes mistakes. On six synthetic three-voice calls 91 to 98% of the
-  speech time got the right speaker; the misses were short remarks right after a speaker
-  change. Similar voices and people talking over each other are harder. Accuracy on long
-  real calls has not been measured.
-- OCR misreads look-alike characters now and then ("FastAPl"), and text with confidence
-  below 50% is dropped.
+- Speaker detection makes mistakes. On the recordings it was checked on, the number of main
+  speakers came out right: two webinars (4 and 6 found), a two-person interview (2), three
+  one-voice narrations (1 each). What goes wrong is at the edges: a short remark right after
+  a speaker change can go to the previous speaker, and when two people talk at once the same
+  words can appear under both. Nobody has scored a long call against a hand-made reference.
+- Music or noise is sometimes "recognized" as a few nonsense words.
+- OCR misreads look-alike characters now and then ("FastAPl"), drops text with confidence
+  below 50%, and garbles small text in a compressed recording of a whole desktop.
+- The first time a window is shown, its menus and toolbars are printed with the content.
+- A screen is named by its largest new text, which is not always the heading.
 - Transcription starts after the recording ends. There are no live captions.
 - Developed and tried by hand on Linux only. On Windows and macOS just the automated tests
   have run (unit tests and the end-to-end test pass on all three in CI).

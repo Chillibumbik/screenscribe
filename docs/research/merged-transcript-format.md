@@ -93,10 +93,11 @@ it can feed the `.md` to a model.
 |---|---|---|
 | A new screen state opens a chapter; speech is listed under the screen visible while it was said | order and locality findings above | `timeline.build` |
 | Speech is split into sentences with their own times; a sentence goes to the screen shown at its midpoint (the screen shown for most of it) and is never cut | boundaries rarely fall on sentence ends | `speech.sentences`, `timeline.build` |
-| Only text that the previous kept screen did not show is printed | dedup findings; also drops window chrome | `screen.fresh` |
-| Fewer than 12 new characters is not a new screen | clocks, counters, cursor | `screen.read_screens` |
+| Only text that the previous kept screen did not show is printed, compared segment by segment | dedup findings; also drops window chrome; a slide line sharing a row with a chat bubble is not repeated | `screen.fresh` |
+| Fewer than 20 new letters is not a new screen | clocks, counters, cursor, a name label | `screen.read_screens` |
 | A screen that returns to an earlier one is a one-line reference, not a reprint | token cost, readability | `timeline.build` (`back_to`) |
-| A change of less than half of the lines is labelled `Screen update` | tells the reader the rest is unchanged | `timeline.build` (`update`) |
+| A small change does not open a chapter: it is a short `Screen update` note between the sentences. A change is small when less than half of the lines are new and the heading is not | on real webinars half of the chapters were chat messages (see the revision below) | `timeline.build`, `screen.headline` |
+| The screen is named by its largest new text, not its first line | the first line is usually window chrome | `screen.headline` |
 | Side-by-side panes are read one after another, not row by row | interleaved panes are unreadable and break dedup | `screen.blocks` |
 | A legend at the top explains that screen blocks are deltas and OCR may misread | delta-only text is untested on LLMs; the legend is the mitigation | `timeline.LEGEND` |
 | `[MM:SS]` (`H:MM:SS` past an hour), bold `Speaker N:` | W3C guidance; the format video models are documented with | `timeline.clock`, `timeline.markdown` |
@@ -118,15 +119,37 @@ Backend: FastAPl, Python 3.12
 Деплой: Docker, Kubernetes
 ```
 
-**[00:19] Speaker 3:** Конечно, на этом слайде наш текст. Обратите внимание на последнюю строку, деплей будет кубернейтес.
+**[00:19] Speaker 3:** Конечно, на этом слайде наш текст. Обратите внимание на последнюю строку, где плый будет кубернетис.
 
 **[00:26] Speaker 2:** А почему для очереди выбрали именно это решение?
 ````
 
 The example shows why the merge matters. "Последнюю строку" and "это решение" only make
-sense next to the slide. The speech model writes English terms phonetically ("кубернейтес")
+sense next to the slide. The speech model writes English terms phonetically ("кубернетис")
 and misheard "стек" as "текст"; the screen block carries the correct "Kubernetes". The OCR
 has its own error ("FastAPl"). Each source covers for the other.
+
+## Revision after real recordings (2026-11-19)
+
+The first version was checked on a synthetic call only. Two real webinars (41 and 48 minutes:
+slides inside a webinar platform, with participant tiles and a chat feed beside them) showed
+where the layout broke down, and the rules above already include the fixes.
+
+| What the recordings showed | What changed |
+|---|---|
+| 49 and 46 chapters. About half of them were a chat message or a name label appearing beside an unchanged slide, and they cut the talk about one slide into fragments | A change of less than half of the lines no longer opens a chapter. It is a short `Screen update` note between the sentences. Now 29 and 16 chapters with 17 and 25 notes |
+| Chat messages are content, not noise: "стажировка оплачиваемая?" shows up in the chat seconds before a speaker answers it | They stay in the timeline, as notes, at the moment they appeared |
+| A slide line and a chat bubble at the same height were read as one row, so the old slide line was printed again with every new message | Text is compared segment by segment, not row by row |
+| Headings were often window chrome: an address bar, a name label, a misread emoji | A screen is named by its largest new text, usually the slide heading |
+| With a busy chat panel a new slide brought fewer than half of the lines on the screen, so it was taken for a small change | A screen is also new when its largest text is new and clearly larger than ordinary text there. When all text is one size (a chat on its own) nothing counts as a heading |
+| Counters and misread icons ("000000") were enough to count as a change | Only letters count, and it takes 20 of them |
+| 8 and 12 speakers were reported where about 4 and 4 to 6 talk. The extra ones were pieces of one to three seconds at the edges of other people's turns | Clustering threshold 0.8 to 0.9, and a voice heard for under five seconds in total is shown as `Speaker ?`. Now 4 and 6 |
+
+Not fixed by the revision:
+
+- The first time a window appears, its chrome is printed (a PowerPoint ribbon, a bookmarks bar).
+- Text columns with a narrow gap between them are read row by row.
+- The same line can be printed twice when the OCR splits it into boxes differently on the next frame.
 
 ## Open questions
 

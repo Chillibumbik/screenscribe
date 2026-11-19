@@ -19,6 +19,12 @@ def load_audio(path) -> np.ndarray:
     return np.concatenate(chunks) if chunks else np.zeros(0, np.float32)
 
 
+def duration(path) -> float:
+    """Length in seconds as the container states it; 0 if it does not (browser recordings)."""
+    with av.open(str(path)) as container:
+        return (container.duration or 0) / 1_000_000
+
+
 def frames(path, every: float = 1.0):
     """Yield (seconds, BGR image) roughly every `every` seconds of the first video track."""
     with av.open(str(path)) as container:

@@ -1,8 +1,8 @@
 # sample.webm
 
-Duration 00:55, speakers: 3, screens: 4
+Duration 00:56, speakers: 3, screens: 4
 
-> How to read: this is one timeline. A `Screen` heading marks the moment the picture changed; the block under it is the text read from the screen (only what the previous screen did not show), and the lines after it are what was said while that screen was visible. Times are from the start of the recording. Screen text is OCR and may contain misread characters.
+> How to read: this is one timeline. A `Screen` heading marks the moment the picture changed; the block under it is the text read from the screen (only what the previous screen did not show), and the lines after it are what was said while that screen was visible. A `Screen update` line is a small addition to the screen above, such as a chat message. Times are from the start of the recording. Screen text is OCR and may contain misread characters.
 
 ## [00:00] `Screen: Проект: Личный кабинет клиента`
 
@@ -14,11 +14,11 @@ Duration 00:55, speakers: 3, screens: 4
 Команда: 3 разработчика, 1 аналитик
 ```
 
-**[00:00] Speaker 1:** Добрый день, коллеги. Давайте посмотрим на план второго этапа. Вот здесь на слайде указаны срок сдачи и бюджет.
+**[00:00] Speaker 1:** Добрый день, коллеги. Давайте посмотрим на план второго этапа. Вот здесь на слайде указаны срок сдачи и бюджета.
 
 **[00:08] Speaker 2:** Да, вижу. Скажите, а этот срок включает тестирование?
 
-**[00:12] Speaker 1:** Да, тестирование входит в этот срок. Денис, расскажи, пожалуйста, про архитектуру.
+**[00:13] Speaker 1:** Да, тестирование входит в этот срок. Денис, расскажи, пожалуйста, про архитектуру.
 
 ## [00:19] `Screen: Архитектура`
 
@@ -31,13 +31,13 @@ Backend: FastAPl, Python 3.12
 Деплой: Docker, Kubernetes
 ```
 
-**[00:19] Speaker 3:** Конечно, на этом слайде наш текст. Обратите внимание на последнюю строку, деплей будет кубернейтес.
+**[00:19] Speaker 3:** Конечно, на этом слайде наш текст. Обратите внимание на последнюю строку, где плый будет кубернетис.
 
 **[00:26] Speaker 2:** А почему для очереди выбрали именно это решение?
 
 **[00:30] Speaker 3:** Оно уже используется в вашей инфраструктуре, поэтому так будет проще в поддержке.
 
-## [00:34] `Screen: Задержка API со стороны CRM: высокий`
+## [00:34] `Screen: Задержка API со стороны CRM: высокий Нет тестового стенда: средний Рост нагрузки`
 
 ```text
 Задержка API со стороны CRM: высокий
@@ -57,6 +57,6 @@ $ pytest tests/ -q
 FAILED tests/test_sync.py:test_retry - TimeoutError
 ```
 
-**[00:45] Speaker 3:** И последнее. Вот результат пробона теста. Один тест падает по тайм-ауту, я исправлю это завтра.
+**[00:45] Speaker 3:** И последнее. Вот результат прогона теста. Один тест падает по таймауту. Я исправлю это завтра. Отлично, тогда на сегодня всё.
 
-**[00:52] Speaker 1:** Отлично. Тогда на сегодня всё. Спасибо всем.
+**[00:54] Speaker 1:** Всё, спасибо всем.

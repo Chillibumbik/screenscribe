@@ -7,10 +7,15 @@ from . import models
 from .media import SAMPLE_RATE
 
 MAX_CHUNK = 20.0  # seconds; GigaAM is trained on utterances up to ~25-30 s and degrades beyond
+MIN_TALK = 5.0  # seconds in the whole recording; less than this is not counted as a speaker
 
 
 def transcribe(audio: np.ndarray, threads: int = 4, progress=lambda message: None) -> list[dict]:
     """Return sentences [{start, end, speaker, text}]; speakers are numbered from 1 by first appearance.
+
+    Speaker 0 means "unidentified": on real calls the clustering leaves stray voices
+    that add up to a second or two (the tail of someone's phrase, a backchannel over
+    another speaker). They keep their words but do not become extra participants.
 
     Diarization runs first and each speaker segment is recognized on its own, so no
     word-level alignment between the two models is needed.
@@ -25,11 +30,13 @@ def transcribe(audio: np.ndarray, threads: int = 4, progress=lambda message: Non
             num_threads=threads),
         embedding=sherpa_onnx.SpeakerEmbeddingExtractorConfig(
             model=str(models.fetch(models.EMBEDDING)), num_threads=threads),
-        # The number of speakers is found by threshold. TitaNet-small with 0.8 was the only
-        # pair that counted the speakers right on all five check recordings (the library
-        # default of 0.5 splits one voice into several). A fixed num_clusters is not offered:
-        # asking for 3 returned 2 on the sample, as stray segments take a cluster of their own.
-        clustering=sherpa_onnx.FastClusteringConfig(num_clusters=-1, threshold=0.8),
+        # The number of speakers is found by threshold. With TitaNet-small, 0.9 gave the right
+        # main speakers on every check recording (a 41 min webinar, a 42 min interview, a
+        # one-voice reading, four short test calls); 0.8 split one webinar voice in two, 1.0
+        # merged the two people of the interview, the library default of 0.5 splits far more.
+        # A fixed num_clusters is not offered: asking for 3 returned 2 on the sample, as
+        # stray segments take a cluster of their own.
+        clustering=sherpa_onnx.FastClusteringConfig(num_clusters=-1, threshold=0.9),
         min_duration_on=0.3,
         min_duration_off=0.5,
     ))
@@ -40,6 +47,9 @@ def transcribe(audio: np.ndarray, threads: int = 4, progress=lambda message: Non
         return 0
 
     turns = diarizer.process(audio, callback=on_chunk).sort_by_start_time()
+    talk = {}
+    for turn in turns:
+        talk[turn.speaker] = talk.get(turn.speaker, 0.0) + turn.end - turn.start
 
     folder = models.fetch(models.ASR)
     recognizer = sherpa_onnx.OfflineRecognizer.from_transducer(
@@ -59,7 +69,8 @@ def transcribe(audio: np.ndarray, threads: int = 4, progress=lambda message: Non
             stream.accept_waveform(SAMPLE_RATE, audio[int(start * SAMPLE_RATE):int(end * SAMPLE_RATE)])
             recognizer.decode_stream(stream)
             for begin, finish, text in sentences(stream.result.tokens, stream.result.timestamps, start, end):
-                speaker = numbers.setdefault(turn.speaker, len(numbers) + 1)
+                known = talk[turn.speaker] >= MIN_TALK
+                speaker = numbers.setdefault(turn.speaker, len(numbers) + 1) if known else 0
                 segments.append({"start": begin, "end": finish, "speaker": speaker, "text": text})
     return segments
 

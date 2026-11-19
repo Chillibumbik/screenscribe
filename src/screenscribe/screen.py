@@ -12,15 +12,18 @@ from .media import frames
 
 CHANGED = 0.004  # share of pixels that must differ from the last OCR'ed frame
 STILL = 0.002  # below this share between two samples the picture counts as settled
-MIN_NEW_CHARS = 12  # less new text than this is noise (clocks, counters, cursor)
+MIN_NEW_LETTERS = 20  # less new text than this is noise (clocks, counters, a name label)
 
 
 def read_screens(path, threads: int = 4, progress=lambda message: None) -> list[dict]:
-    """Return [{start, lines, new, image}], one entry per screen state that brought new text.
+    """Return [{start, title, major, lines, new, image}], one entry per screen state that brought new text.
 
     `lines` is everything readable on that frame, `new` only what the previously kept
     screen did not have (so window chrome and unchanged content are not repeated),
-    `image` is a JPEG of the frame.
+    `title` the largest new text (a slide or page heading), `image` a JPEG of the frame.
+    `major` tells a new screen from a small change of the same one: most of the text is
+    new, or the largest text is. The second test is what catches a new slide when a busy
+    chat panel beside it holds more lines than the slide does.
     """
     ocr = None
     screens, seen = [], []
@@ -46,11 +49,14 @@ def read_screens(path, threads: int = 4, progress=lambda message: None) -> list[
         progress(f"Reading the screen: {int(now) // 60:02}:{int(now) % 60:02}")
         ocr = ocr or _engine(threads)
         began = time.perf_counter()
-        lines = [fix_scripts(line) for line in to_lines(ocr(image, use_cls=False))]
+        table = [[(size, fix_scripts(text)) for size, text in row] for row in to_rows(ocr(image, use_cls=False))]
         read_at, gap = now, 1.5 * (time.perf_counter() - began)
-        new = fresh(lines, seen)
+        lines = [" | ".join(text for _, text in row) for row in table]
+        found = [kept for row in table if (kept := fresh([text for _, text in row], seen))]
+        new = [" | ".join(kept) for kept in found]
         last = small
-        if sum(len(key(line)) for line in new) < MIN_NEW_CHARS:
+        # letters only: digits alone are mostly clocks, counters and misread icons
+        if sum(c.isalpha() for line in new for c in line) < MIN_NEW_LETTERS:
             wait = min(wait * 2, 30.0)  # nothing readable is changing: look less often
             since = None
             continue
@@ -58,15 +64,48 @@ def read_screens(path, threads: int = 4, progress=lambda message: None) -> list[
         height, width = image.shape[:2]
         scale = min(1.0, 1280 / width)
         thumb = cv2.resize(image, (int(width * scale), int(height * scale)), interpolation=cv2.INTER_AREA)
-        screens.append({"start": since, "lines": lines, "new": new,
+        title, heading_is_new = headline(table, found)
+        screens.append({"start": since, "title": title, "major": heading_is_new or len(new) * 2 > len(lines),
+                        "lines": lines, "new": new,
                         "image": cv2.imencode(".jpg", thumb, [cv2.IMWRITE_JPEG_QUALITY, 70])[1].tobytes()})
-        seen = [key(line) for line in lines]
+        seen = [key(text) for row in table for _, text in row]
         since = None
     return screens
 
 
-def to_lines(result) -> list[str]:
-    """Turn OCR boxes into text lines in reading order (panes one after another, rows inside)."""
+def headline(table: list[list[tuple]], found: list[list[str]]) -> tuple[str, bool]:
+    """Name a screen by its largest new text (usually the slide or page heading).
+
+    Also tells whether the heading itself has changed: the new text is as large as
+    anything on the screen and clearly larger than ordinary text there (when all text
+    is one size, as in a chat, nothing is a heading). The first new line is often window chrome,
+    so it is not used. New segments nearly as large as the largest are taken together,
+    in reading order, so a heading of two lines stays whole; more than three of them
+    is body text, and then the largest stands alone. Segments without words (numbers,
+    misread icons) are not candidates.
+    """
+    def has_words(text: str) -> bool:
+        return sum(c.isalpha() for c in text) > 3
+
+    size_of = {text: size for row in table for size, text in row}
+    worded = [text for kept in found for text in kept if has_words(text)]
+    if not worded:
+        return " ".join(found[0])[:80], False
+    largest = max(size_of[text] for text in worded)
+    top = [text for text in worded if size_of[text] >= 0.85 * largest]
+    title = " ".join(top) if len(top) <= 3 else max(worded, key=size_of.get)
+    sizes = sorted(size for row in table for size, text in row if has_words(text))
+    stands_out = largest >= 0.85 * sizes[-1] and largest >= 1.3 * sizes[len(sizes) // 2]
+    return title[:80], bool(stands_out)  # sizes are numpy floats; JSON wants a plain bool
+
+
+def to_rows(result) -> list[list[tuple[float, str]]]:
+    """Turn OCR boxes into rows of text in reading order (panes one after another, rows inside).
+
+    A row is a list of (text height, text) segments: boxes close together make one
+    segment, boxes far apart on the same row (table cells, or two panes the cut could
+    not separate) stay apart.
+    """
     if result.boxes is None:
         return []
     cells = [(box[:, 0].min(), box[:, 1].min(), box[:, 0].max(), box[:, 1].max(), text.strip())
@@ -74,7 +113,7 @@ def to_lines(result) -> list[str]:
     if not cells:
         return []
     height = float(np.median([bottom - top for _, top, _, bottom, _ in cells]))
-    return [line for block in blocks(cells, height) for line in rows(block, height)]
+    return [row for block in blocks(cells, height) for row in rows(block, height)]
 
 
 def blocks(cells: list[tuple], height: float) -> list[list[tuple]]:
@@ -98,31 +137,40 @@ def blocks(cells: list[tuple], height: float) -> list[list[tuple]]:
     return [cells]
 
 
-def rows(cells: list[tuple], height: float) -> list[str]:
-    """Lines of one pane, top to bottom; boxes far apart on one row (table cells) get ' | '."""
-    grouped = []  # [center y, [(left, right, text)]]
+def rows(cells: list[tuple], height: float) -> list[list[tuple[float, str]]]:
+    """Rows of one pane, top to bottom, each a list of (text height, text) segments."""
+    grouped = []  # [center y, [(left, right, box height, text)]]
     for left, top, right, bottom, text in sorted(cells, key=lambda cell: cell[1] + cell[3]):
         center = (top + bottom) / 2
         if grouped and abs(center - grouped[-1][0]) < 0.5 * height:
-            grouped[-1][1].append((left, right, text))
+            grouped[-1][1].append((left, right, bottom - top, text))
         else:
-            grouped.append([center, [(left, right, text)]])
-    lines = []
+            grouped.append([center, [(left, right, bottom - top, text)]])
+    out = []
     for _, row in grouped:
         row.sort()
-        line = row[0][2]
-        for (_, right, _), (left, _, text) in zip(row, row[1:]):
-            line += (" | " if left - right > 2 * height else " ") + text
-        lines.append(line)
-    return lines
+        segments = [row[0][2:]]
+        for (_, right, _, _), (left, _, size, text) in zip(row, row[1:]):
+            if left - right > 2 * height:
+                segments.append((size, text))
+            else:
+                segments[-1] = (max(segments[-1][0], size), segments[-1][1] + " " + text)
+        out.append(segments)
+    return out
 
 
-def fresh(lines: list[str], seen: list[str]) -> list[str]:
-    """Lines whose text was not on the previous screen; small OCR differences do not count."""
+def fresh(row: list[str], seen: list[str]) -> list[str]:
+    """Segments of one row that the previous screen did not show.
+
+    Small OCR differences do not count as new. Segments are compared one by one, so a
+    slide line that shares a row with a chat message is not repeated when only the
+    message is new. One- and two-character segments cannot be judged and stay with
+    their row if anything else in it is new.
+    """
     known = set(seen)
-    return [line for line in lines
-            if len(key(line)) > 2 and key(line) not in known
-            and not difflib.get_close_matches(key(line), seen, 1, 0.8)]
+    kept = [text for text in row if len(key(text)) < 3
+            or key(text) not in known and not difflib.get_close_matches(key(text), seen, 1, 0.8)]
+    return kept if any(len(key(text)) > 2 for text in kept) else []
 
 
 _TO_LATIN = str.maketrans("асеорхукмтнвіѕјАВСЕНКМОРТХУІЅЈ", "aceopxykmthbisjABCEHKMOPTXYISJ")

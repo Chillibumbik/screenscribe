@@ -22,7 +22,7 @@ nav a:hover { border-color: var(--muted); }
   border-top: 1px solid var(--line); scroll-margin-top: 8px; }
 .screen h2 { font-size: .92rem; margin: 0 0 8px; overflow-wrap: anywhere; }
 .screen img { display: block; width: 100%; border: 1px solid var(--line); border-radius: 8px; cursor: zoom-in; }
-.screen img.zoomed { position: fixed; inset: 0; z-index: 9; width: 100vw; height: 100vh; object-fit: contain;
+img.zoomed { position: fixed; inset: 0; z-index: 9; width: 100vw; height: 100vh; object-fit: contain;
   border: 0; border-radius: 0; background: rgba(0, 0, 0, .88); cursor: zoom-out; }
 .screen pre { margin: 8px 0 0; padding: 10px 12px; font: 12.5px/1.5 ui-monospace, monospace; white-space: pre-wrap;
   overflow-wrap: anywhere; background: var(--card); border: 1px solid var(--line); border-radius: 8px; }
@@ -34,12 +34,18 @@ nav a:hover { border-color: var(--muted); }
     max-height: calc(100vh - 24px); overflow: auto; }
 }
 .turn { margin: 0 0 14px; }
+/* a small change of the chapter's screen, shown where it happened in the talk */
+.update { display: flex; align-items: flex-start; gap: 4px; margin: 0 0 14px; padding: 6px 10px;
+  border-left: 3px solid var(--line); background: var(--card); border-radius: 0 8px 8px 0; }
+.update pre { flex: 1; min-width: 0; margin: 0; font: 12.5px/1.5 ui-monospace, monospace; white-space: pre-wrap;
+  overflow-wrap: anywhere; }
+.update img { width: 112px; border: 1px solid var(--line); border-radius: 4px; cursor: zoom-in; }
 button { all: unset; cursor: pointer; }
 button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 3px; }
 .t { font: .78rem ui-monospace, monospace; color: var(--muted); margin-right: 8px; }
 .t:hover { text-decoration: underline; }
 .who { font-weight: 650; margin-right: 7px; }
-.s1 { color: #3577e5; } .s2 { color: #d9652b; } .s3 { color: #1b9a72; } .s4 { color: #a557d1; }
+.s0 { color: var(--muted); } .s1 { color: #3577e5; } .s2 { color: #d9652b; } .s3 { color: #1b9a72; } .s4 { color: #a557d1; }
 .s5 { color: #d2416a; } .s6 { color: #2b9bb8; } .s7 { color: #94811a; } .s8 { color: #8c6a4f; }
 /* sound only: the pictures are already on the page, and a video box would cover them */
 #player { position: fixed; right: 16px; bottom: 16px; width: 340px; max-width: calc(100vw - 32px); }
@@ -76,7 +82,7 @@ document.addEventListener('click', event => {
       showNames();
     }
   }
-  if (event.target.matches('.screen img')) event.target.classList.toggle('zoomed');
+  if (event.target.matches('main img')) event.target.classList.toggle('zoomed');
 });
 </script>
 </body>

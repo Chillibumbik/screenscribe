@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 from . import timeline
-from .media import SAMPLE_RATE, load_audio
+from .media import SAMPLE_RATE, duration, load_audio
 
 
 def default_threads() -> int:
@@ -24,9 +24,9 @@ def process(source, out_dir=None, threads: int = 0, screen: bool = True,
     threads = threads or default_threads()
     progress("Loading audio")
     audio = load_audio(source)
-    duration = len(audio) / SAMPLE_RATE
+    length = max(len(audio) / SAMPLE_RATE, duration(source))  # a silent video has no audio to measure
     segments = transcribe(audio, threads, progress)
     del audio  # hundreds of MB for a long call; OCR needs the memory next
     screens = read_screens(source, threads, progress) if screen else []
     progress("Writing the transcript")
-    return timeline.write(out_dir / source.stem, source, segments, screens, duration)
+    return timeline.write(out_dir / source.stem, source, segments, screens, length)
