@@ -112,13 +112,13 @@ Measured on a laptop with an Intel i5-12450H and 16 GB RAM, no GPU, 4 threads.
 
 | Recording | Total | Speakers | Speech | Screen | Peak memory |
 |---|---|---|---|---|---|
-| 41 min webinar, 720p, slides and chat | 7.7 min | 3.7 min | 2.1 min | 1.8 min | 0.9 GB |
-| 48 min webinar, 720p, slides and chat | 8.8 min | 4.4 min | 2.6 min | 1.8 min | 1.1 GB |
-| 42 min interview, audio only | 6.8 min | 4.1 min | 2.5 min | none | 0.9 GB |
-| 7 min screencast of dense web pages, 720p | 3.9 min | 0.7 min | 0.4 min | 2.9 min | 0.7 GB |
+| 41 min webinar, 720p, slides and chat | 8.0 min | 4.0 min | 2.1 min | 1.8 min | 0.9 GB |
+| 48 min webinar, 720p, slides and chat | 8.4 min | 4.2 min | 2.5 min | 1.7 min | 1.2 GB |
+| 42 min interview, audio only | 6.4 min | 3.9 min | 2.3 min | none | 0.9 GB |
+| 7 min screencast of dense web pages, 720p | 4.9 min | 0.6 min | 0.4 min | 3.9 min | 0.7 GB |
 
 A call takes about a fifth of its length. A recording where dense text keeps changing takes
-up to half. A screen that keeps moving (scrolling, a video) is read at most often enough to
+much longer, 0.7 of its length in the worst file tried. A screen that keeps moving (scrolling, a video) is read at most often enough to
 stay under two thirds of real time, so a slow machine samples it less often instead of
 taking hours; a screen that has settled, such as a new slide, is always read.
 
@@ -129,11 +129,12 @@ on 4. More than 4 made it slower, so 4 is the cap.
 
 - The speech model knows Russian only. English terms are written in Cyrillic ("кубернетис");
   the screen text next to them usually has the right spelling.
-- Speaker detection makes mistakes. On the recordings it was checked on, the number of main
-  speakers came out right: two webinars (4 and 6 found), a two-person interview (2), three
-  one-voice narrations (1 each). What goes wrong is at the edges: a short remark right after
-  a speaker change can go to the previous speaker, and when two people talk at once the same
-  words can appear under both. Nobody has scored a long call against a hand-made reference.
+- Speaker detection makes mistakes. A two-person interview came out as 2 speakers and three
+  one-voice narrations as 1 each. Two webinars came out as 4 and 7; the 4 fits the people who
+  present, the 7 was not checked by ear and may hold one person twice. What goes wrong is at
+  the edges: a short remark right after a speaker change can go to the previous speaker or
+  to `Speaker ?`, and when two people talk at once the same words can appear under both.
+  Nobody has scored a long call against a hand-made reference.
 - Music or noise is sometimes "recognized" as a few nonsense words.
 - OCR misreads look-alike characters now and then ("FastAPl"), drops text with confidence
   below 50%, and garbles small text in a compressed recording of a whole desktop.
